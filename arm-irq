@@ -1,0 +1,180 @@
+1.ARM体系结构与汇编（2天）
+2.ARM开发环境构建（windows和linux）
+3.210 bootloader 开发（7天）
+4.ARM中断编程（软中断和硬件中断）（2天）
+
+ARM7  50MHz-200MHz   mp3,工控领域
+ARM9  200MHz-500MHz  诺基亚智能手机（6600.6630），
+                     点菜机，手持设备，pos机
+ARM11 500MHz-800MHz  iphone1， 平板电脑等
+     M    单片机市场，微控制领域
+ARM  R    实时领域（汽车电子，航空电子）
+     A    消费类电子   A8
+CORTEX
+
+ARM工作模式：user,system,svc,abt,irq,fiq,undef
+ARM寄存器：
+R0-R12：通用寄存器，存放临时数据
+R13（SP）：栈指针寄存器，存放栈顶位置
+R14（LR-linkreturn）：存放函数或中断的返回地址
+R15（PC）：程序计数器
+
+CPSR（当前程序状态寄存器）：C（控制域） ， X（扩展域） ，S（状态域）， F（标志域）四个区域。
+
+ARM指令模式：32位定长指令集，用到里所有的37个寄存器
+THUMB指令模式：16位定长指令集，没有使用R8-R12寄存器（单片机）
+
+
+
+UART0驱动编程
+GPA0CON	  0xE0200000	[15:0]0x2222	UART0功能态
+ULCON0	  0xE2900000	[6:0]0x3	8 N 1
+UCON0	  0xE2900004	[3:0]0X5	轮询工作模式
+UTRSTAT0  0xE2900010	[2:0]           轮询标志位
+UTXH0	  0xE2900020	[7:0]		发送缓冲寄存器
+URXH0	  0xE2900024 	[7:0]		接收缓冲寄存器
+
+UBRDIV0	  0xE2900028	[15:0]0x22	115200波特率
+UDIVSLOT0 0xE290002C 	[15:0]0xDDDD
+
+函数接口抽象
+void uart0_init(void)
+{
+	//GPI/O管脚设置功能态
+	//8 N 1
+	//轮询工作方式
+	//115200
+}
+char uart0_getchar(void)
+{
+	//判断UTRSTAT0的0位是否为1
+	//如果不为1，while继续判断
+	//如果为1，return返回URXH0的值
+}
+void uart0_putchar(char ch)
+{
+	//判断UTRSTAT0的1位是否为1
+	//如果为0，while继续判断
+	//如果为1，向UTRXH0寄存器赋值ch
+}
+void c_entry(void)
+{
+	char ch;
+	uart0_init();
+	uart0_putchar('h');
+	uart0_putchar('e');
+	uart0_putchar('l');
+	uart0_putchar('l');
+	uart0_putchar('0');
+	while (1) {
+		ch = uart0_getchar();
+		uart0_putchar(ch);
+	}
+}
+
+
+DDRAM工作原理
+1.电路原理图
+ 4片内存地址总线，数据总线，控制总线是如何链接的？
+2.内存芯片手册 （K4T1G08）
+ K4T1G08存储单元如何组织？如何读写数据？
+3.210芯片的数据手册 DRAM CONTROLLER（page/594）
+ 210的DRAM CONTROLLER和K4T1G08是什么关系？如何协调工作
+
+
+问题：*（（unsigned int *）0x21000000)=0x12345678
+210芯片如何完成了数据的存储？
+1.CPU选择地址空间，产生相应地址空间的片选信号。
+2.计算内部偏移地址。
+3.CPU的DRAM CONTROLLER产生行地址，列地址，bank地址。
+4.CPU把0x12345678发送到数据总线上。
+5.四片内存分别接收8位数据线上的数据，并联存储
+6.nWE信号有效，完成写操作。
+7.关闭片选信号。
+
+
+u-boot的使用
+1.make distclean
+2.make tiny210_config
+3.make
+
+把生成tiny210-uboot.bin烧写到SD卡上
+1.插上sd卡到电脑上，sudo fdisk -l  查看sd卡设备名，如
+/dev/sdb1
+2.进入到有tiny210-uboot.bin的目录下，执行烧写命令
+sudo dd iflag=dsync oflag=dsync if=tiny210-uboot.bin
+of=/dev/sdb seek=1
+
+
+加载OS （Linux）
+1.从nand上或sd卡上拷贝linux kernel到dram指定地址，如0x20008000.
+2.A8跳转到0x20008000上执行linux kernel时需要携带三个参数
+    R0=0，R1=机器号，R2=参数列表首地址。
+3.bootloader把kernel启动时所需要的参数列表按照固定的格式，存放到0x20000100.（如 115200 串口0 内存大小等参数）
+4.准备号参数列表后，准备好R0到R2三个参数，PC跳到0x20008000开始执行linux kernel。bootloader到此时已经功成身退。
+
+
+ARM异常与中断编程
+异常触发后，ARM自动做四件事：
+1.当前工作模式切换到对应的异常模式
+2.CPSR保存到对应的异常模式
+3.当前工作模式下的返回地址PC-4的值自动保存到对应异常模式下的
+R14里
+4.R15（PC）跳转到对应异常模式的异常向量入口地址
+异常向量表入口地址：
+0x0	复位异常		SVC
+0x4	未定义异常	UND
+0x8	软中断		SVC
+0xC	预取指令异常	ABT
+0X10	预取数据异常	ABT
+0X14	保留
+0x18	IRQ中断异常	IRQ
+0X1C	FIQ中断异常	FIQ
+
+
+k1按键中断编程
+void irq_init(void (*fun)(void))
+{
+一.中断源使能层
+GPH2CON		0xE0200C40 [0:3]0XF   EXT16中断功能态
+EXT_INT_2_CON	0xE0200E08 [0:2]0x2   下降沿触发中断
+EXT_INT_2_MASK	0xE0200F08 [0]0	      中断源mask位开启
+EXT_INT_2_PEND	0xE0200F48 [0]	      写1清0
+二.中断控制器使能层
+VIC0INTSELECT	0xF200000C [16] 0    EXT16IRQ模式触发
+VIC0INTENABLE	0xF2000010 [16] 1     EXT16中断开启
+VIC0ADDRESS	0xF2000F00 [0:31]0x0  VIC0组总地址服务
+VIC0VECTADDR16 	0xF2000140 [0:31]     中断处理函数地址（保存处理器现场，调用中断处理子函数，恢复处理器现场） 
+三.中断核心层使能
+MRS R0,CPSR
+BIC R0, R0, #0X80
+MSR CPSR, R0
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

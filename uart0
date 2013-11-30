@@ -1,0 +1,88 @@
+1.ARM体系结构与汇编（2天）
+2.ARM开发环境构建（windows和linux）
+3.210 bootloader 开发（7天）
+4.ARM中断编程（软中断和硬件中断）（2天）
+
+ARM7  50MHz-200MHz   mp3,工控领域
+ARM9  200MHz-500MHz  诺基亚智能手机（6600.6630），
+                     点菜机，手持设备，pos机
+ARM11 500MHz-800MHz  iphone1， 平板电脑等
+     M    单片机市场，微控制领域
+ARM  R    实时领域（汽车电子，航空电子）
+     A    消费类电子   A8
+CORTEX
+
+ARM工作模式：user,system,svc,abt,irq,fiq,undef
+ARM寄存器：
+R0-R12：通用寄存器，存放临时数据
+R13（SP）：栈指针寄存器，存放栈顶位置
+R14（LR-linkreturn）：存放函数或中断的返回地址
+R15（PC）：程序计数器
+
+CPSR（当前程序状态寄存器）：C（控制域） ， X（扩展域） ，S（状态域）， F（标志域）四个区域。
+
+ARM指令模式：32位定长指令集，用到里所有的37个寄存器
+THUMB指令模式：16位定长指令集，没有使用R8-R12寄存器（单片机）
+
+
+
+UART0驱动编程
+GPA0CON	  0xE0200000	[15:0]0x2222	UART0功能态
+ULCON0	  0xE2900000	[6:0]0x3	8 N 1
+UCON0	  0xE2900004	[3:0]0X5	轮询工作模式
+UTRSTAT0  0xE2900010	[2:0]           轮询标志位
+UTXH0	  0xE2900020	[7:0]		发送缓冲寄存器
+URXH0	  0xE2900024 	[7:0]		接收缓冲寄存器
+
+UBRDIV0	  0xE2900028	[15:0]0x22	115200波特率
+UDIVSLOT0 0xE290002C 	[15:0]0xDDDD
+
+函数接口抽象
+void uart0_init(void)
+{
+	//GPI/O管脚设置功能态
+	//8 N 1
+	//轮询工作方式
+	//115200
+}
+char uart0_getchar(void)
+{
+	//判断UTRSTAT0的0位是否为1
+	//如果不为1，while继续判断
+	//如果为1，return返回URXH0的值
+}
+void uart0_putchar(char ch)
+{
+	//判断UTRSTAT0的1位是否为1
+	//如果为0，while继续判断
+	//如果为1，向UTRXH0寄存器赋值ch
+}
+void c_entry(void)
+{
+	char ch;
+	uart0_init();
+	uart0_putchar('h');
+	uart0_putchar('e');
+	uart0_putchar('l');
+	uart0_putchar('l');
+	uart0_putchar('0');
+	while (1) {
+		ch = uart0_getchar();
+		uart0_putchar(ch);
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
